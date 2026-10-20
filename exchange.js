@@ -22,10 +22,17 @@ async function requestOnce(method, path, params = {}, signed = false, base = BAS
     qs += '&signature=' + sig;
   }
   const url = base + path + (qs ? '?' + qs : '');
-  const res = await fetch(url, {
-    method,
-    headers: KEY ? { 'X-MBX-APIKEY': KEY } : {},
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      method,
+      headers: KEY ? { 'X-MBX-APIKEY': KEY } : {},
+    });
+  } catch (e) {
+    const c = e.cause || {};
+    const host = new URL(url).host;
+    throw new Error(`Koneksi ke ${host} gagal (${c.code || c.message || e.message})`);
+  }
   const text = await res.text();
   let data;
   try { data = JSON.parse(text); } catch { data = text; }
