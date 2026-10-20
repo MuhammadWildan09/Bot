@@ -10,7 +10,7 @@ const SECRET = process.env.BINANCE_SECRET || '';
 
 let timeOffset = 0;
 
-async function request(method, path, params = {}, signed = false) {
+async function request(method, path, params = {}, signed = false, base = BASE) {
   const p = { ...params };
   if (signed) {
     p.timestamp = Date.now() + timeOffset;
@@ -21,7 +21,7 @@ async function request(method, path, params = {}, signed = false) {
     const sig = crypto.createHmac('sha256', SECRET).update(qs).digest('hex');
     qs += '&signature=' + sig;
   }
-  const url = BASE + path + (qs ? '?' + qs : '');
+  const url = base + path + (qs ? '?' + qs : '');
   const res = await fetch(url, {
     method,
     headers: KEY ? { 'X-MBX-APIKEY': KEY } : {},
@@ -38,7 +38,10 @@ async function request(method, path, params = {}, signed = false) {
   return data;
 }
 
-const pub = (path, params) => request('GET', path, params, false);
+// Data pasar publik boleh diambil dari alamat lain (mis. DATA_URL=https://fapi.binance.com)
+// karena data testnet sering tidak realistis. Order tetap ke BASE.
+const DATA_BASE = process.env.DATA_URL || BASE;
+const pub = (path, params) => request('GET', path, params, false, DATA_BASE);
 const sgn = (method, path, params) => request(method, path, params, true);
 
 async function syncTime() {

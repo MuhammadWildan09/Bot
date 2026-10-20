@@ -73,9 +73,18 @@ async function scan(cfg = CFG) {
       return { symbol: t.symbol, quoteVolume: +t.quoteVolume, change24h: +t.priceChangePercent,
                spreadBps, funding: fund[t.symbol] ?? 0 };
     })
-    .filter(x => x.spreadBps <= cfg.maxSpreadBps && Math.abs(x.funding) <= cfg.maxAbsFunding)
-    .sort((a, b) => b.quoteVolume - a.quoteVolume)
-    .slice(0, cfg.topByVolume);
+    .filter(x => Math.abs(x.funding) <= cfg.maxAbsFunding);
+
+  // Spread valid = 0..max. Spread negatif berarti order book rusak (sering di testnet).
+  const strict = cands.filter(x => x.spreadBps >= 0 && x.spreadBps <= cfg.maxSpreadBps);
+  let spreadOk = true;
+  if (strict.length >= 5 || !ex.TESTNET) {
+    cands = strict;
+  } else {
+    spreadOk = false; // testnet: abaikan spread, tandai tidak valid
+    console.log('PERINGATAN: data spread testnet tidak valid, filter spread dilewati.');
+  }
+  cands = cands.sort((a, b) => b.quoteVolume - a.quoteVolume).slice(0, cfg.topByVolume);
 
   // Tahap 2: volatilitas & tren dari kline
   const out = [];
@@ -92,9 +101,10 @@ async function scan(cfg = CFG) {
       const slope = (e20.at(-1) - e20.at(-6)) / e20.at(-6) * 100; // kemiringan 5 candle
       const trend = adx(c);
       // Skor: tren kuat + volatilitas cukup + biaya (spread) rendah + likuid
-      const score = trend * 1.0 + Math.min(atrPct, 3) * 5 - x.spreadBps * 3
+      const spreadPenalty = spreadOk ? x.spreadBps * 3 : 0;
+      const score = trend * 1.0 + Math.min(atrPct, 3) * 5 - spreadPenalty
                     + Math.log10(x.quoteVolume / cfg.minQuoteVolume + 1) * 5;
-      out.push({ ...x, price: last, atrPct: +atrPct.toFixed(2), adx: +trend.toFixed(1),
+      out.push({ ...x, spreadOk, price: last, atrPct: +atrPct.toFixed(2), adx: +trend.toFixed(1),
                  dir, slope: +slope.toFixed(2), score: +score.toFixed(1) });
     } catch (e) { /* lewati pair bermasalah */ }
   }
@@ -109,7 +119,7 @@ if (require.main === module) {
     console.log(`Lolos filter: ${r.length}`);
     for (const x of r.slice(0, 10)) {
       console.log(`${x.symbol.padEnd(12)} ${x.dir.padEnd(5)} skor ${String(x.score).padStart(5)} ` +
-        `ADX ${x.adx} ATR% ${x.atrPct} spread ${x.spreadBps.toFixed(1)}bps fund ${(x.funding * 100).toFixed(3)}%`);
+        `ADX ${x.adx} ATR% ${x.atrPct} spread ${x.spreadOk ? x.spreadBps.toFixed(1) + 'bps' : 'n/a'} fund ${(x.funding * 100).toFixed(3)}%`);
     }
   }).catch(e => { console.error('Gagal:', e.message); process.exit(1); });
 }
