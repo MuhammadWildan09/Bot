@@ -114,7 +114,8 @@ async function scan(cfg = CFG) {
 module.exports = { scan, CFG, ema, atr, adx };
 
 if (require.main === module) {
-  console.log(`Mode: ${ex.TESTNET ? 'TESTNET' : 'LIVE'}  (${ex.BASE})`);
+  console.log(`Order: ${ex.TESTNET ? 'TESTNET' : 'LIVE'} (${ex.BASE})`);
+  console.log(`Data pasar: ${ex.DATA_BASE}`);
   scan().then(r => {
     console.log(`Lolos filter: ${r.length}`);
     for (const x of r.slice(0, 10)) {

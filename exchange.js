@@ -4,7 +4,7 @@ const crypto = require('crypto');
 
 const TESTNET = (process.env.TESTNET || 'true') !== 'false';
 const BASE = process.env.BASE_URL ||
-  (TESTNET ? 'https://testnet.binancefuture.com' : 'https://fapi.binance.com');
+  (TESTNET ? 'https://demo-fapi.binance.com' : 'https://fapi.binance.com'); // demo/testnet resmi Binance Futures
 const KEY = process.env.BINANCE_KEY || '';
 const SECRET = process.env.BINANCE_SECRET || '';
 
@@ -126,7 +126,7 @@ const roundStep = (v, step) => +(Math.floor(v / step + 1e-9) * step).toFixed(dec
 const roundPrice = (v, tick) => +(Math.round(v / tick) * tick).toFixed(decimals(tick));
 
 module.exports = {
-  TESTNET, BASE, syncTime, exchangeInfo, ticker24h, bookTickers, premiumIndex, klines,
+  TESTNET, BASE, DATA_BASE, syncTime, exchangeInfo, ticker24h, bookTickers, premiumIndex, klines,
   account, positions, openOrders, setLeverage, setMarginType, marketOrder,
   stopMarketClose, takeProfitMarketClose, cancelAll, symbolFilters, roundStep, roundPrice,
 };
