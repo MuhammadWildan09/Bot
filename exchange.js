@@ -10,7 +10,7 @@ const SECRET = process.env.BINANCE_SECRET || '';
 
 let timeOffset = 0;
 
-async function request(method, path, params = {}, signed = false, base = BASE) {
+async function requestOnce(method, path, params = {}, signed = false, base = BASE) {
   const p = { ...params };
   if (signed) {
     p.timestamp = Date.now() + timeOffset;
@@ -30,7 +30,8 @@ async function request(method, path, params = {}, signed = false, base = BASE) {
   let data;
   try { data = JSON.parse(text); } catch { data = text; }
   if (!res.ok) {
-    const err = new Error(`Binance ${res.status} ${path}: ${typeof data === 'object' ? JSON.stringify(data) : data}`);
+    const body = typeof data === 'object' ? JSON.stringify(data) : String(data).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+    const err = new Error(`Binance ${res.status} ${path}: ${body}`);
     err.status = res.status;
     err.data = data;
     throw err;
@@ -41,6 +42,20 @@ async function request(method, path, params = {}, signed = false, base = BASE) {
 // Data pasar publik boleh diambil dari alamat lain (mis. DATA_URL=https://fapi.binance.com)
 // karena data testnet sering tidak realistis. Order tetap ke BASE.
 const DATA_BASE = process.env.DATA_URL || BASE;
+// Ulangi otomatis untuk GET saja (aman). Order (POST/DELETE) tidak pernah diulang otomatis.
+async function request(method, path, params = {}, signed = false, base = BASE) {
+  const maxTry = method === 'GET' ? 4 : 1;
+  for (let i = 1; ; i++) {
+    try {
+      return await requestOnce(method, path, params, signed, base);
+    } catch (e) {
+      const retryable = !e.status || e.status >= 500 || e.status === 429;
+      if (i >= maxTry || !retryable) throw e;
+      await new Promise(r => setTimeout(r, 1500 * i));
+    }
+  }
+}
+
 const pub = (path, params) => request('GET', path, params, false, DATA_BASE);
 const sgn = (method, path, params) => request(method, path, params, true);
 
